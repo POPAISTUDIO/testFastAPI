@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastAPI Image Generation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        input[type="file"] {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            background: #f8f9fa;
+        }
+        .tab.active {
+            background: white;
+            border-color: #ddd;
+            margin-bottom: -1px;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FastAPI Image Generation Test</h1>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('file')">File Upload</div>
+            <div class="tab" onclick="switchTab('json')">JSON Payload</div>
+        </div>
+        
+        <!-- File Upload Tab -->
+        <div id="file-tab" class="tab-content active">
+            <form id="fileForm">
+                <div class="form-group">
+                    <label for="prompt">Prompt:</label>
+                    <textarea id="prompt" name="prompt" placeholder="Enter your image generation prompt here..." required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="ref1">Reference Image 1 (optional):</label>
+                    <input type="file" id="ref1" name="reference_image_1" accept="image/*">
+                    <img id="preview1" class="image-preview" style="display: none;">
+                </div>
+                
+                <div class="form-group">
+                    <label for="ref2">Reference Image 2 (optional):</label>
+                    <input type="file" id="ref2" name="reference_image_2" accept="image/*">
+                    <img id="preview2" class="image-preview" style="display: none;">
+                </div>
+                
+                <div class="form-group">
+                    <label for="ref3">Reference Image 3 (optional):</label>
+                    <input type="file" id="ref3" name="reference_image_3" accept="image/*">
+                    <img id="preview3" class="image-preview" style="display: none;">
+                </div>
+                
+                <button type="submit">Generate Image (File Upload)</button>
+            </form>
+        </div>
+        
+        <!-- JSON Payload Tab -->
+        <div id="json-tab" class="tab-content">
+            <form id="jsonForm">
+                <div class="form-group">
+                    <label for="jsonPrompt">Prompt:</label>
+                    <textarea id="jsonPrompt" name="prompt" placeholder="Enter your image generation prompt here..." required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="jsonRefs">Reference Images (Base64 encoded, one per line):</label>
+                    <textarea id="jsonRefs" name="reference_images" placeholder="Paste base64 encoded images here, one per line (optional)"></textarea>
+                </div>
+                
+                <button type="submit">Generate Image (JSON)</button>
+            </form>
+        </div>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // File preview functionality
+        function setupFilePreview(inputId, previewId) {
+            const input = document.getElementById(inputId);
+            const preview = document.getElementById(previewId);
+            
+            input.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    preview.style.display = 'none';
+                }
+            });
+        }
+        
+        setupFilePreview('ref1', 'preview1');
+        setupFilePreview('ref2', 'preview2');
+        setupFilePreview('ref3', 'preview3');
+        
+        // File upload form submission
+        document.getElementById('fileForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('prompt', document.getElementById('prompt').value);
+            
+            // Add reference images
+            const refs = ['ref1', 'ref2', 'ref3'];
+            refs.forEach((refId, index) => {
+                const file = document.getElementById(refId).files[0];
+                if (file) {
+                    formData.append(`reference_image_${index + 1}`, file);
+                }
+            });
+            
+            await submitRequest('/generateimage', formData, false);
+        });
+        
+        // JSON form submission
+        document.getElementById('jsonForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const payload = {
+                prompt: document.getElementById('jsonPrompt').value,
+                reference_images: []
+            };
+            
+            // Parse base64 images
+            const refsText = document.getElementById('jsonRefs').value.trim();
+            if (refsText) {
+                payload.reference_images = refsText.split('\n').filter(line => line.trim());
+            }
+            
+            await submitRequest('/generateimage-json', payload, true);
+        });
+        
+        async function submitRequest(endpoint, data, isJson) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = 'Generating image... Please wait.';
+            
+            try {
+                const url = `http://localhost:8000${endpoint}`;
+                const options = {
+                    method: 'POST',
+                    headers: isJson ? { 'Content-Type': 'application/json' } : {},
+                    body: isJson ? JSON.stringify(data) : data
+                };
+                
+                const response = await fetch(url, options);
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `Success! Generated image URL: ${result.image_url}`;
+                    
+                    // If there's an image URL, display it
+                    if (result.image_url) {
+                        const img = document.createElement('img');
+                        img.src = result.image_url;
+                        img.style.maxWidth = '100%';
+                        img.style.marginTop = '10px';
+                        img.style.borderRadius = '5px';
+                        resultDiv.appendChild(img);
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `Error: ${result.error}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Request failed: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html> 

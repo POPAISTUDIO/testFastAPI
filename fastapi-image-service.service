@@ -1,0 +1,15 @@
+[Unit]
+Description=FastAPI Image Generation Service
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/antoine/testFastAPI
+Environment=PATH=/home/ec2-user/antoine/testFastAPI/venv/bin
+ExecStart=/home/ec2-user/antoine/testFastAPI/venv/bin/python main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target 
